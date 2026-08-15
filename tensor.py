@@ -1,5 +1,5 @@
 import numpy as np
-from .operations import Add, Mul, MatMul, Transpose
+from .operations import Add, Mul, MatMul, Transpose, Neg, Sub, Pow, Div, ReLU, Sigmoid, Tanh, Sum, Mean, Reshape
 
 class Tensor:
     def __init__(self, data, _ctx, requires_grad = False):
@@ -11,7 +11,7 @@ class Tensor:
         
     def __repr__(self):
         return f"Tensor: {self.data}, requires_grad = {self.requires_grad}"
-    
+
     def __add__(self, other):
         other = other if isinstance(other, Tensor) else Tensor(other)
         op = Add(self, other)
@@ -35,6 +35,62 @@ class Tensor:
         requires_grad = self.requires_grad or other.requires_grad
         
         return Tensor(result_data, _ctx = op, requires_grad=requires_grad)
+    
+    def __neg__(self):
+        op = Neg(self)
+        result_data = op.forward(self.data)
+        return Tensor(result_data, _ctx=op, requires_grad=self.requires_grad)
+
+    def __sub__(self, other):
+        other = other if isinstance(other, Tensor) else Tensor(other)
+        op = Sub(self, other)
+        result_data = op.forward(self.data, other.data)
+        requires_grad = self.requires_grad or other.requires_grad
+        return Tensor(result_data, _ctx=op, requires_grad=requires_grad)
+
+    def __pow__(self, exponent):
+        # We assume exponent is a standard int/float for things like tensor**2
+        op = Pow(self)
+        result_data = op.forward(self.data, exponent)
+        return Tensor(result_data, _ctx=op, requires_grad=self.requires_grad)
+
+    def __truediv__(self, other):
+        # Overloads the '/' operator
+        other = other if isinstance(other, Tensor) else Tensor(other)
+        op = Div(self, other)
+        result_data = op.forward(self.data, other.data)
+        requires_grad = self.requires_grad or other.requires_grad
+        return Tensor(result_data, _ctx=op, requires_grad=requires_grad)
+
+    def relu(self):
+        op = ReLU(self)
+        result_data = op.forward(self.data)
+        return Tensor(result_data, _ctx=op, requires_grad=self.requires_grad)
+
+    def sigmoid(self):
+        op = Sigmoid(self)
+        result_data = op.forward(self.data)
+        return Tensor(result_data, _ctx=op, requires_grad=self.requires_grad)
+
+    def tanh(self):
+        op = Tanh(self)
+        result_data = op.forward(self.data)
+        return Tensor(result_data, _ctx=op, requires_grad=self.requires_grad)
+
+    def sum(self):
+        op = Sum(self)
+        result_data = op.forward(self.data)
+        return Tensor(result_data, _ctx=op, requires_grad=self.requires_grad)
+
+    def mean(self):
+        op = Mean(self)
+        result_data = op.forward(self.data)
+        return Tensor(result_data, _ctx=op, requires_grad=self.requires_grad)
+
+    def reshape(self, shape):
+        op = Reshape(self)
+        result_data = op.forward(self.data, shape)
+        return Tensor(result_data, _ctx=op, requires_grad=self.requires_grad)
     
     @property
     def T(self):
