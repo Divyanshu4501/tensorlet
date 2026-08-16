@@ -119,18 +119,6 @@ class Tensor:
                 topo_order.append(tensor)
             
         build_topo(self)
-        print("\n========== COMPUTATION GRAPH ==========")
-        for i, t in enumerate(topo_order):
-            if t._ctx is None:
-                # It's a leaf tensor (user-created input or weight)
-                print(f"[{i}] LEAF TENSOR | Shape: {t.data.shape} | requires_grad: {t.requires_grad}")
-            else:
-                # It's a result of an operation
-                op_name = t._ctx.__class__.__name__
-                # Find the IDs of the parent tensors to show connections
-                parent_indices = [topo_order.index(p) for p in t._ctx.parents]
-                print(f"[{i}] OPERATION: {op_name} | Inputs: Node(s) {parent_indices} -> Output Shape: {t.data.shape}")
-        print("=======================================\n")
         for t in reversed(topo_order):
             if t._ctx is not None:
                 t._ctx.backward(t.grad)
