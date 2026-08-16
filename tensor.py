@@ -1,13 +1,16 @@
 import numpy as np
-from .operations import Add, Mul, MatMul, Transpose, Neg, Sub, Pow, Div, ReLU, Sigmoid, Tanh, Sum, Mean, Reshape
+from operations import Add, Mul, MatMul, Transpose, Neg, Sub, Pow, Div, ReLU, Sigmoid, Tanh, Sum, Mean, Reshape
 
 class Tensor:
-    def __init__(self, data, _ctx, requires_grad = False):
+    def __init__(self, data, _ctx = None, requires_grad = False):
         self.data = np.array(data, dtype=np.float64)
         self._ctx = _ctx
         self.requires_grad = requires_grad
         
-        self.grad = np.zeros_like(data, dtype=np.float64)
+        if self.requires_grad:
+            self.grad = np.zeros_like(self.data, dtype=np.float64)
+        else:
+            self.grad = None
         
     def __repr__(self):
         return f"Tensor: {self.data}, requires_grad = {self.requires_grad}"
@@ -22,7 +25,7 @@ class Tensor:
 
     def __mul__(self, other):
         other = other if isinstance(other, Tensor) else Tensor(other)
-        op = Add(self, other)
+        op = Mul(self, other)
         result_data = op.forward(self.data, other.data)
         requires_grad = self.requires_grad or other.requires_grad
         
@@ -30,7 +33,7 @@ class Tensor:
     
     def __matmul__(self, other):
         other = other if isinstance(other, Tensor) else Tensor(other)
-        op = Add(self, other)
+        op = MatMul(self, other)
         result_data = op.forward(self.data, other.data)
         requires_grad = self.requires_grad or other.requires_grad
         
@@ -49,13 +52,11 @@ class Tensor:
         return Tensor(result_data, _ctx=op, requires_grad=requires_grad)
 
     def __pow__(self, exponent):
-        # We assume exponent is a standard int/float for things like tensor**2
         op = Pow(self)
         result_data = op.forward(self.data, exponent)
         return Tensor(result_data, _ctx=op, requires_grad=self.requires_grad)
 
     def __truediv__(self, other):
-        # Overloads the '/' operator
         other = other if isinstance(other, Tensor) else Tensor(other)
         op = Div(self, other)
         result_data = op.forward(self.data, other.data)
@@ -96,9 +97,11 @@ class Tensor:
     def T(self):
         op = Transpose(self)
         result_data = op.forward(self.data)
-        return Tensor(result_data, _ctx = op, requires_grad=self.self.requires_grad)
+        return Tensor(result_data, _ctx = op, requires_grad=self.requires_grad)
     
     def backward(self, grad = None):
+        if not self.requires_grad:
+            raise RuntimeError("element 0 of tensors does not require grad and does not have a grad_fn")
         if grad is None:
             self.grad = np.ones_like(self.data, dtype=np.float64)
         else:
@@ -116,6 +119,18 @@ class Tensor:
                 topo_order.append(tensor)
             
         build_topo(self)
+        print("\n========== COMPUTATION GRAPH ==========")
+        for i, t in enumerate(topo_order):
+            if t._ctx is None:
+                # It's a leaf tensor (user-created input or weight)
+                print(f"[{i}] LEAF TENSOR | Shape: {t.data.shape} | requires_grad: {t.requires_grad}")
+            else:
+                # It's a result of an operation
+                op_name = t._ctx.__class__.__name__
+                # Find the IDs of the parent tensors to show connections
+                parent_indices = [topo_order.index(p) for p in t._ctx.parents]
+                print(f"[{i}] OPERATION: {op_name} | Inputs: Node(s) {parent_indices} -> Output Shape: {t.data.shape}")
+        print("=======================================\n")
         for t in reversed(topo_order):
             if t._ctx is not None:
                 t._ctx.backward(t.grad)
