@@ -1,4 +1,16 @@
 import numpy as np
+
+def unbroadcast(grad, target_shape):
+    ndims_added = grad.ndim - len(target_shape)
+    if ndims_added > 0:
+        grad = np.sum(grad, axis = tuple(range(ndims_added)))
+        
+    for i, dim_size in enumerate(target_shape):
+        if dim_size == 1 and grad.shape[i] > 1:
+            grad = np.sum(grad, axis=1, keepdims=True)
+    
+    return grad
+
 class Operations:
     def __init__(self, *tensors):
         self.parents = tensors
@@ -15,26 +27,28 @@ class Operations:
     
 class Add(Operations):
     def forward(self, a, b):
+        self.saved_for_backward(a.shape, b.shape)
         return a + b
     
     def backward(self, grad_output):
+        shape_a, shape_b = self.saved_tensors
         if self.parents[0].requires_grad:
-            self.parents[0].grad += grad_output * 1.0
-            
+            self.parents[0].grad += unbroadcast(grad_output, shape_a)
         if self.parents[1].requires_grad:
-            self.parents[1].grad += grad_output * 1.0
-            
+            self.parents[1].grad += unbroadcast(grad_output, shape_b)
+
 class Mul(Operations):
     def forward(self, a, b):
-        self.save_for_backward(a,b)
-        return a*b
-    
+        # For multiplication, we need the actual tensors AND their shapes
+        self.saved_for_backward(a, b)
+        return a * b
+
     def backward(self, grad_output):
         a, b = self.saved_tensors
         if self.parents[0].requires_grad:
-            self.parents[0].grad += grad_output * b
+            self.parents[0].grad += unbroadcast(grad_output * b, a.shape)
         if self.parents[1].requires_grad:
-            self.parents[1].grad += a * grad_output
+            self.parents[1].grad += unbroadcast(grad_output * a, b.shape)
 
 class MatMul(Operations):
     def forward(self, a, b):
@@ -85,7 +99,7 @@ class Pow(Operations):
             
 class Div(Operations):
     def forward(self, a, b):
-        self.saved_for_backward(a, b)
+        self.save_for_backward(a, b)
         return a / b
 
     def backward(self, grad_output):
@@ -99,7 +113,7 @@ class Div(Operations):
 
 class ReLU(Operations):
     def forward(self, a):
-        self.saved_for_backward(a)
+        self.save_for_backward(a)
         return np.maximum(0, a)
 
     def backward(self, grad_output):
@@ -112,8 +126,7 @@ class ReLU(Operations):
 class Sigmoid(Operations):
     def forward(self, a):
         out = 1.0 / (1.0 + np.exp(-a))
-        # Saving the output directly makes the backward pass much faster
-        self.saved_for_backward(out)
+        self.save_for_backward(out)
         return out
 
     def backward(self, grad_output):
@@ -125,7 +138,7 @@ class Sigmoid(Operations):
 class Tanh(Operations):
     def forward(self, a):
         out = np.tanh(a)
-        self.saved_for_backward(out)
+        self.save_for_backward(out)
         return out
 
     def backward(self, grad_output):
@@ -136,7 +149,7 @@ class Tanh(Operations):
 
 class Sum(Operations):
     def forward(self, a):
-        self.saved_for_backward(a)
+        self.save_for_backward(a)
         return np.sum(a)
 
     def backward(self, grad_output):
@@ -147,7 +160,7 @@ class Sum(Operations):
 
 class Mean(Operations):
     def forward(self, a):
-        self.saved_for_backward(a)
+        self.save_for_backward(a)
         return np.mean(a)
 
     def backward(self, grad_output):
@@ -158,7 +171,7 @@ class Mean(Operations):
 
 class Reshape(Operations):
     def forward(self, a, shape):
-        self.saved_for_backward(a.shape)
+        self.save_for_backward(a.shape)
         return np.reshape(a, shape)
 
     def backward(self, grad_output):
