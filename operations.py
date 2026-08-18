@@ -3,12 +3,12 @@ import numpy as np
 def unbroadcast(grad, target_shape):
     ndims_added = grad.ndim - len(target_shape)
     if ndims_added > 0:
-        grad = np.sum(grad, axis = tuple(range(ndims_added)))
+        grad = np.sum(grad, axis=tuple(range(ndims_added)))
         
     for i, dim_size in enumerate(target_shape):
         if dim_size == 1 and grad.shape[i] > 1:
-            grad = np.sum(grad, axis=1, keepdims=True)
-    
+            grad = np.sum(grad, axis=i, keepdims=True) 
+            
     return grad
 
 class Operations:
@@ -37,7 +37,7 @@ class Sum(Operations):
     
 class Add(Operations):
     def forward(self, a, b):
-        self.saved_for_backward(a.shape, b.shape)
+        self.save_for_backward(a.shape, b.shape)
         return a + b
     
     def backward(self, grad_output):
@@ -49,16 +49,19 @@ class Add(Operations):
 
 class Mul(Operations):
     def forward(self, a, b):
-        # For multiplication, we need the actual tensors AND their shapes
-        self.saved_for_backward(a, b)
+        self.save_for_backward(a.shape, b.shape)
         return a * b
 
     def backward(self, grad_output):
-        a, b = self.saved_tensors
+        shape_a, shape_b = self.saved_tensors        
+        a = self.parents[0].data
+        b = self.parents[1].data
+        
         if self.parents[0].requires_grad:
-            self.parents[0].grad += unbroadcast(grad_output * b, a.shape)
+            self.parents[0].grad += unbroadcast(grad_output * b, shape_a)
+            
         if self.parents[1].requires_grad:
-            self.parents[1].grad += unbroadcast(grad_output * a, b.shape)
+            self.parents[1].grad += unbroadcast(grad_output * a, shape_b)
 
 class MatMul(Operations):
     def forward(self, a, b):
