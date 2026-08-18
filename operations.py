@@ -21,9 +21,19 @@ class Operations:
         
     def forward(self, *args):
         raise NotImplementedError
-    
+
     def backward(self, grad_output):
         raise NotImplementedError
+    
+class Sum(Operations):
+    def forward(self, a):
+        self.save_for_backward(a.shape)
+        return np.sum(a)
+    
+    def backward(self, grad_output):
+        shape_a = self.saved_tensors
+        if self.parents[0].requires_grad:
+            self.parents[0].grad += np.ones(shape_a) * grad_output
     
 class Add(Operations):
     def forward(self, a, b):

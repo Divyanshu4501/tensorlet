@@ -22,6 +22,12 @@ class Tensor:
         requires_grad = self.requires_grad or other.requires_grad
         
         return Tensor(result_data, _ctx = op, requires_grad=requires_grad)
+    
+    def sum(self):
+        op = Sum(self)
+        out_data = op.forward(self.data)
+        return Tensor(out_data, _ctx = op ,requires_grad=self.requires_grad)
+        
 
     def __mul__(self, other):
         other = other if isinstance(other, Tensor) else Tensor(other)
