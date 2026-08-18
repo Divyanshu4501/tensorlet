@@ -5,5 +5,5 @@ class MSELoss:
         diff = predictions - targets
         squared_diff = diff ** 2
         total_loss = squared_diff.sum()
-        N = Tensor([predictions.data.size], requires_grad=False)
-        return total_loss/N
+        N = predictions.data.size
+        return total_loss * (1.0/N)

@@ -3,7 +3,7 @@ from tensor import Tensor
 class Module:
     def zero_grad(self):
         for p in self.parameters():
-            p.grad = None
+            p.grad = 0.0
             
     def parameters(self):
         params = []

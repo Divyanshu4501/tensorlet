@@ -1,4 +1,4 @@
-class SDG:
+class SGD:
     def __init__(self, parameters, lr = 0.1):
         self.parameters = parameters
         self.lr = lr
@@ -10,4 +10,4 @@ class SDG:
     
     def zero_grad(self):
         for p in self.parameters:
-            p.grad = None
+            p.grad = 0.0
