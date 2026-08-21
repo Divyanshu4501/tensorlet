@@ -150,7 +150,6 @@ class Tensor:
             if self.device == "cpu":
                 self.grad = np.ones_like(self.data, dtype=np.float32)
             elif self.device == "cuda":
-                # Ensure you expose an ones_like function in your C++ bindings
                 self.grad = tensorlet_cuda.ones_like(self.data)
         else:
             if self.device == "cpu":
