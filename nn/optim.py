@@ -10,4 +10,4 @@ class SGD:
     
     def zero_grad(self):
         for p in self.parameters:
-            p.grad = 0.0
+            p.grad = None
