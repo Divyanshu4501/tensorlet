@@ -163,11 +163,6 @@ class MatMul(Operations):
         if self.parents[1].requires_grad:
             self.parents[1].grad += a.T @ grad_output
 
-
-# ==========================================
-# UNARY OPERATIONS
-# ==========================================
-
 class Neg(Operations):
     def forward(self, a):
         if isinstance(a, cp.ndarray):
