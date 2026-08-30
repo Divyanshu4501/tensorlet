@@ -1,4 +1,6 @@
 from tensor import Tensor
+import numpy as np
+from backend import cp
 
 class Module:
     def __init__(self):
@@ -6,8 +8,10 @@ class Module:
 
     def zero_grad(self):
         for p in self.parameters():
-            p.grad = None
-            
+            if p.requires_grad:
+                xp = cp if isinstance(p.data, cp.ndarray) else np
+                p.grad = xp.zeros_like(p.data)
+
     def parameters(self):
         params = []
         for name, value in self.__dict__.items():
@@ -21,9 +25,9 @@ class Module:
     def to(self, device):
         self.device = device
         for name, value in self.__dict__.items():
-            if isInstance(value, Tensor) and value.requires_grad:
+            if isinstance(value, Tensor):
                 setattr(self, name, value.to(device))
-            elif isInstance(value, Module):
+            elif isinstance(value, Module):
                 value.to(device)
         return self
     
