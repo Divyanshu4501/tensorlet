@@ -3,7 +3,7 @@ from tensor import Tensor
 class MSELoss:
     def __call__(self, predictions, targets):
         
-        if not isInstance(targets. Tensor):
+        if not isinstance(targets, Tensor):
             targets = Tensor(targets, device=predictions.device)
         elif targets.device != predictions.device:
             targets = targets.to(predictions.device)
