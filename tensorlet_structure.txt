@@ -1,0 +1,140 @@
+tensorlet/
+│
+├── pyproject.toml
+├── README.md
+│
+├── torch/                          ← PUBLIC FACADE ONLY — no kernels, no dispatch logic here.
+│   │                                  Every function here is a thin wrapper delegating to core/ + ops/.
+│   │
+│   ├── __init__.py
+│   ├── tensor/
+│   │   ├── __init__.py
+│   │   ├── tensor.py               ← Tensor class: holds a core.TensorImpl, exposes methods
+│   │   ├── creation.py             ← zeros/ones/empty/arange/... (calls core.tensor_impl factory fns)
+│   │   ├── properties.py           ← .shape/.dtype/.device/.stride() — reads from core.TensorImpl
+│   │   ├── indexing.py             ← __getitem__/__setitem__ — delegates to core/indexing.py
+│   │   └── conversions.py          ← .to()/.cuda()/.float()/.clone()/.detach()
+│   │
+│   ├── functional/                 ← SOURCE OF TRUTH for every op. tensor/views.py no longer
+│   │   │                              duplicates this — Tensor.reshape() just calls F.reshape(self).
+│   │   ├── __init__.py
+│   │   ├── arithmetic.py
+│   │   ├── comparison.py
+│   │   ├── reduction.py
+│   │   ├── shape.py                ← reshape/transpose/permute/squeeze/unsqueeze/expand/flatten
+│   │   ├── linalg.py
+│   │   ├── activation.py
+│   │   ├── convolution.py
+│   │   └── normalization.py
+│   │
+│   ├── autograd/
+│   │   ├── __init__.py
+│   │   ├── function.py             ← Function base class: THE contract every op (CPU or Triton)
+│   │   │                              must implement — forward(ctx, *args), backward(ctx, grad_out).
+│   │   │                              This is what ops/ and backends/ plug into.
+│   │   ├── graph.py                ← Node, edges, dependency tracking
+│   │   ├── engine.py               ← backward(): topo sort + grad accumulation, calls Function.backward
+│   │   ├── context.py              ← no_grad()/enable_grad()/inference_mode()
+│   │   └── grad_mode.py
+│   │
+│   ├── nn/
+│   │   ├── __init__.py
+│   │   ├── module.py                ← Module: _parameters/_buffers/_modules, train()/eval()/to()/
+│   │   │                               state_dict()/load_state_dict(), hook registration
+│   │   ├── parameter.py             ← Parameter(Tensor subclass, requires_grad=True default)
+│   │   ├── containers.py            ← Sequential, ModuleList, ModuleDict, ParameterList/Dict
+│   │   ├── init.py                  ← xavier_/kaiming_/uniform_/normal_/orthogonal_
+│   │   ├── modules/
+│   │   │   ├── linear.py
+│   │   │   ├── conv.py
+│   │   │   ├── activation.py        ← thin Module wrappers around torch.functional.activation
+│   │   │   ├── rnn.py
+│   │   │   ├── pooling.py
+│   │   │   ├── normalization.py
+│   │   │   └── dropout.py
+│   │   └── losses.py                ← MSELoss/CrossEntropyLoss/etc, wraps functional losses
+│   │
+│   ├── optim/
+│   │   ├── __init__.py
+│   │   ├── optimizer.py             ← base: state/param_groups/defaults, zero_grad/step contract
+│   │   ├── sgd.py
+│   │   ├── adam.py
+│   │   ├── adamw.py
+│   │   ├── rmsprop.py
+│   │   ├── adagrad.py
+│   │   └── lr_scheduler/
+│   │       ├── base.py              ← _LRScheduler
+│   │       ├── step_lr.py
+│   │       ├── exponential_lr.py
+│   │       ├── cosine_annealing.py
+│   │       └── reduce_on_plateau.py ← does NOT inherit _LRScheduler, same as real torch
+│   │
+│   ├── utils/
+│   │   ├── data/
+│   │   │   ├── dataset.py
+│   │   │   ├── dataloader.py
+│   │   │   ├── sampler.py
+│   │   │   └── collate.py
+│   │   ├── checkpoint.py            ← activation recomputation
+│   │   ├── benchmark/
+│   │   │   ├── timer.py
+│   │   │   └── triton_profiler.py
+│   │   ├── tensorboard/
+│   │   │   └── writer.py
+│   │   └── hooks.py                 ← RemovableHandle
+│   │
+│   ├── cuda/                        ← thin status/query API (is_available(), device_count()) —
+│   │   │                                   actual kernel code lives in backends/triton/, not here
+│   │   └── __init__.py
+│   │
+│   ├── backends/                    ← user-facing backend *selection* (torch.backends.triton.enabled = True)
+│   │   └── __init__.py              ← NOT where kernels live — see top-level backends/ below
+│   │
+│   ├── serialization.py             ← save()/load() via safetensors or pickle
+│   └── random.py                    ← manual_seed() seeds NumPy/CuPy RNG state that ops/ consume;
+│                                        does NOT claim Triton owns independent RNG semantics
+│
+├── core/                            ← INTERNAL ENGINE. Only place that knows about memory layout.
+│   ├── __init__.py
+│   ├── dtype.py                     ← Dtype enum + promotion rules — BUILD THIS FIRST
+│   ├── device.py                    ← Device abstraction (cpu/cuda index) — BUILD THIS SECOND
+│   ├── storage.py                   ← Storage: raw buffer, refcounting for views — BUILD THIS THIRD
+│   ├── tensor_impl.py               ← TensorImpl: shape + stride + offset + Storage reference
+│   │                                    (this is what makes non-copy .view()/.transpose()/.expand()
+│   │                                    possible — nothing above should hold raw arrays itself)
+│   ├── dispatch.py                  ← routes TensorImpl.device → cpu ops or triton ops,
+│   │                                    calling through the autograd.Function contract
+│   ├── memory.py                    ← GPU allocation pool
+│   └── shape_utils.py               ← broadcasting, stride computation for views
+
+│
+├── ops/                             ← Function implementations (CPU NumPy + Triton), one pair per op,
+│   │                                    each conforming to autograd.function.Function contract.
+│   ├── elementwise.py               ← Add/Sub/Mul/Div/Exp, both backends, forward+backward
+│   ├── activation.py                ← ReLU/GELU/Sigmoid, fused fwd+bwd where Triton allows
+│   ├── reduction.py                 ← Sum/Mean/Max/Min
+│   ├── matmul.py                    ← blocked GEMM (build this against your existing ~88%-cuBLAS
+│   │                                    kernel from [[cuda-portfolio]] ported to Triton)
+│   ├── conv.py
+│   ├── normalization.py             ← fused LayerNorm/BatchNorm
+│   └── common.py                    ← shared masking/block-loading Triton device functions
+│
+├── backends/                        ← ACTUAL kernel/runtime code — the only place that imports triton
+│   ├── cpu/
+│   │   └── engine.py                ← NumPy execution of ops/*.py forward/backward
+│   └── triton/
+│       ├── engine.py                ← JIT compile + cache Triton kernels from ops/*.py
+│       └── autotune.py              ← BLOCK_M/N/K configs per shape
+│
+├── tests/
+│   ├── conftest.py                  ← parametrize every op test over ("cpu","triton") backends
+│   ├── test_tensor.py
+│   ├── test_ops.py                  ← diff against real torch as ground truth
+│   ├── test_autograd.py             ← finite-difference gradcheck
+│   ├── test_nn.py
+│   └── test_optim.py                ← assert loss decreases over N steps
+│
+└── examples/
+    ├── 01_mnist_mlp.py
+    ├── 02_mnist_cnn.py
+    └── 03_custom_layer.py
