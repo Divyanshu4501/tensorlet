@@ -132,7 +132,7 @@ tensorlet/
 │   ├── test_ops.py                  ← diff against real torch as ground truth
 │   ├── test_autograd.py             ← finite-difference gradcheck
 │   ├── test_nn.py
-│   └── test_optim.py                ← assert loss decreases over N steps
+│   └── test_optim.py                
 │
 └── examples/
     ├── 01_mnist_mlp.py
