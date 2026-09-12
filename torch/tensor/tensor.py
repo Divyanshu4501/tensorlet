@@ -1,7 +1,9 @@
 import numpy as np
 from torch.backend import cp, HAS_CUPY
 from core.tensor_impl import TensorImpl
-from torch.ops.elementwise import Add
+from torch.ops.elementwise import Add, Sub, Mul, Matmul, Neg
+
+# neg, pow, truediv, relu, sigmoid, tanh, sum, mean, reshape, T
 
 
 class Tensor:
@@ -54,12 +56,66 @@ class Tensor:
     def __repr__(self):
         return f"Tensor: {self.data}, requires_grad: {self.requires_grad}"
     
+    def _check_same_device(self, other):
+        if isinstance(other, Tensor) and self.device != other.device:
+            raise ValueError(
+                f"Cannot combine tensors on different devices: "
+                f"'{self.device}' vs '{other.device}'. Move one of them with "
+                f".to('{self.device}') first."
+            )
+    
     def __add__(self, other):
         other = other if isinstance(other, Tensor) else Tensor(other, device=self.device)
         op = Add(self, other)
+        self._check_same_device(other)
         result_data = op.forward(self.data, other.data)
         requires_grad = self.requires_grad or other.requires_grad
         
         result = Tensor(result_data, requires_grad=requires_grad, device=self.device)
         result._ctx = op
         return result
+    
+    def __mul__(self, other):
+        other = other if isinstance(other, Tensor) else Tensor(other, device=self.device)
+        self._check_same_device(other)
+        op = Mul(self, other)
+        result_data = op.forward(self.data, other.data)
+        requires_grad = self.requires_grad or other.requires_grad
+        
+        result = Tensor(result_data, requires_grad=requires_grad, device=self.device)
+        result._ctx = op
+        return result
+    
+    def __sub__(self, other):
+        other = other if isinstance(other, Tensor) else Tensor(other, device=self.device)
+        self._check_same_device(other)
+        op = Sub(self, other)
+        result_data = op.forward(self.data, other.data)
+        requires_grad = self.requires_grad or other.requires_grad
+        
+        result = Tensor(result_data, requires_grad=requires_grad, device=self.device)
+        result._ctx = op
+        return result
+    
+    def __matmul__(self, other):
+        other = other if isinstance(other, Tensor) else Tensor(other, device=self.device)
+        self._check_same_device(other)
+        op = Matmul(self, other)
+        result_data = op.forward(self.data, other.data)
+        requires_grad = self.requires_grad or other.requires_grad
+        
+        result = Tensor(result_data, requires_grad=requires_grad, device=self.device)
+        result._ctx = op
+        return result
+    
+    def __neg__(self):
+        op = Neg(self)
+        result_data = op.forward(self.data)
+        result = Tensor(result_data, requires_grad=self.requires_grad, device=self.device)
+        result._ctx = op
+        return result
+    
+    def __truediv__(self, other):
+        pass
+    
+        
