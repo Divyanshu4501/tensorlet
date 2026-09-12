@@ -16,12 +16,12 @@ This module makes the GPU backend optional:
     and clearly the moment someone actually tries to use `device='cuda'`,
     while leaving the CPU/NumPy path completely unaffected.
 """
-try:
-    import cupy as cp
-    HAS_CUPY = True
-except ImportError:
-    cp = None
-    HAS_CUPY = False
+# try:
+#     import cupy as cp
+#     HAS_CUPY = True
+# except ImportError:
+#     cp = None
+#     HAS_CUPY = False
 
 try:
     import triton
