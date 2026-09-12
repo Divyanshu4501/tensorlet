@@ -1,10 +1,10 @@
 import numpy as np
-import cupy as cp
+from torch.backend import cp, HAS_CUPY
 from torch.autograd.function import Function
 
 def unbroadcast(grad, target_shape):
     ndims_added = grad.ndim - len(target_shape)
-    xp = cp if isinstance(grad, cp.ndarray) else np
+    xp = cp if HAS_CUPY and isinstance(grad, cp.ndarray) else np
     if ndims_added > 0:
         grad = xp.sum(grad, axis = tuple(range(ndims_added)))
     
@@ -19,4 +19,10 @@ class Add(Function):
         self.save_for_backward(a.shape, b.shape)
         return a + b
     def backward(self, grad_output):
-        pass
+        a_shape, b_shape = self.saved_tensors
+        grad_a = unbroadcast(grad_output, a_shape)
+        grad_b = unbroadcast(grad_output, b_shape)
+        return grad_a, grad_b
+    
+    
+        
