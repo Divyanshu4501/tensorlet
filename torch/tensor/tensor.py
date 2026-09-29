@@ -1,7 +1,7 @@
 import numpy as np
 from torch.backend import cp, HAS_CUPY
 from core.tensor_impl import TensorImpl
-from torch.ops.elementwise import Add, Sub, Mul, Matmul, Neg
+from torch.ops.elementwise import Add, Sub, Mul, Matmul, Neg, Truediv
 
 # neg, pow, truediv, relu, sigmoid, tanh, sum, mean, reshape, T
 
@@ -116,6 +116,16 @@ class Tensor:
         return result
     
     def __truediv__(self, other):
-        pass
+        other = other if isinstance(other, Tensor) else Tensor(other, device=self.device)
+        op = Truediv(self, other)
+        self._check_same_device(other)
+        result_data = op.forward(self.data, other.data)
+        requires_grad = self.requires_grad or other.requires_grad
+        
+        result = Tensor(result_data, requires_grad=requires_grad, device=self.device)
+        result._ctx = op
+        return result
+    
+        
     
         

@@ -75,5 +75,5 @@ class Truediv(Function):
     def backward(self, grad_output):
         a, b = self.saved_tensors
         grad_a = unbroadcast(grad_output/b, a.shape)
-        grad_b = unbroadcast(-grad_output*(-a/(b**2)), b.shape)
+        grad_b = unbroadcast(grad_output*(-a/(b**2)), b.shape)
         return grad_a, grad_b
