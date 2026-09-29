@@ -117,8 +117,8 @@ class Tensor:
     
     def __truediv__(self, other):
         other = other if isinstance(other, Tensor) else Tensor(other, device=self.device)
-        op = Truediv(self, other)
         self._check_same_device(other)
+        op = Truediv(self, other)
         result_data = op.forward(self.data, other.data)
         requires_grad = self.requires_grad or other.requires_grad
         
