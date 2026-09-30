@@ -2,9 +2,9 @@ import numpy as np
 from torch.backend import cp, HAS_CUPY
 from core.tensor_impl import TensorImpl
 import numbers
-from torch.ops.elementwise import Add, Sub, Mul, Matmul, Neg, Truediv, Pow
+from torch.ops.elementwise import Add, Sub, Mul, Matmul, Neg, Truediv, Pow, Sum, Mean
 
-# neg, pow, truediv, relu, sigmoid, tanh, sum, mean, reshape, T
+# neg, pow, truediv, relu, sigmoid, tanh, reshape, T
 
 
 class Tensor:
@@ -126,3 +126,9 @@ class Tensor:
         if not isinstance(exponent, numbers.Number):
             raise TypeError(f"exponent must be a number, got {type(exponent).__name__}")
         return self._apply(Pow, self, exponent=exponent)
+    
+    def sum(self, dim=None, keepdim=False):
+        return self._apply(Sum, self, axis=dim, keepdims=keepdim)
+
+    def mean(self, dim=None, keepdim=False):
+        return self._apply(Mean, self, axis=dim, keepdims=keepdim)
