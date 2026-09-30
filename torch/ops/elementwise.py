@@ -37,16 +37,13 @@ class Sub(Function):
 
 class Mul(Function):
     def forward(self, a, b):
-        self.save_for_backward(a.shape, b.shape)
+        self.save_for_backward(a, b)
         return a*b
     
     def backward(self, grad_output):
-        shape_a, shape_b = self.saved_tensors
-        a = self.parents[0].data
-        b = self.parents[1].data
-        
-        grad_a = unbroadcast(grad_output*b, shape_a)
-        grad_b = unbroadcast(grad_output*a, shape_b)  
+        a, b = self.saved_tensors
+        grad_a = unbroadcast(grad_output*b, a.shape)
+        grad_b = unbroadcast(grad_output*a, b.shape)  
         return grad_a, grad_b
     
 class Matmul(Function):

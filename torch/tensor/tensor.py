@@ -12,6 +12,7 @@ class Tensor:
         self.requires_grad = requires_grad
         self.grad = None
         self._ctx = None
+        self._version = 0
     
     @property
     def data(self):
@@ -22,6 +23,7 @@ class Tensor:
         if isinstance(value, Tensor):
             value = value.data
         self._impl = TensorImpl(value, self.device)
+        self._version += 1
     
     @property
     def device(self):
@@ -62,15 +64,20 @@ class Tensor:
         for t in reversed(topo_order):
             if t._ctx is None or not t.requires_grad:
                 continue
-            if t._ctx is not None:
-                 grads = t._ctx.backward(t.grad)
-                 for parent, grad_contribution in zip(t._ctx.parents, grads):
-                    if not parent.requires_grad:
-                        continue
-                    if parent.grad is None:
-                         parent.grad = grad_contribution
-                    else:
-                        parent.grad = parent.grad + grad_contribution
+            for parent, saved_v in zip(t._ctx.parents, t._ctx.saved_versions):
+                if parent._version != saved_v:
+                    raise RuntimeError(
+                        "one of the variable needed for gradient computation"
+                        "has been updated by an inplace operation"
+                    )
+            grads = t._ctx.backward(t.grad)
+            for parent, grad_contribution in zip(t._ctx.parents, grads):
+                if not parent.requires_grad:
+                    continue
+                if parent.grad is None:
+                     parent.grad = grad_contribution
+                else:
+                    parent.grad = parent.grad + grad_contribution
     
     
     def __repr__(self):

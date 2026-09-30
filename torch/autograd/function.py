@@ -2,6 +2,7 @@ class Function:
     def __init__(self, *tensors):
         self.parents = tensors
         self.saved_tensors = ()
+        self.saved_versions = tuple(t._version for t in tensors)
         
     def save_for_backward(self, *tensors):
         self.saved_tensors = tensors
