@@ -7,6 +7,8 @@ from torch.ops.elementwise import Add, Sub, Mul, Matmul, Neg, Truediv
 
 
 class Tensor:
+    
+    __array_ufunc__ = None
     def __init__(self, data, requires_grad=False, device='cpu'):
         self._impl = TensorImpl(data, device)
         self.requires_grad = requires_grad
@@ -84,75 +86,36 @@ class Tensor:
         return f"Tensor: {self.data}, requires_grad: {self.requires_grad}"
     
     def _check_same_device(self, other):
-        if isinstance(other, Tensor) and self.device != other.device:
-            raise ValueError(
-                f"Cannot combine tensors on different devices: "
-                f"'{self.device}' vs '{other.device}'. Move one of them with "
-                f".to('{self.device}') first."
-            )
+                if isinstance(other, Tensor) and self.device != other.device:
+                    raise ValueError(
+                        f"Cannot combine tensors on different devices: "
+                        f"'{self.device}' vs '{other.device}'. Move one of them with "
+                        f".to('{self.device}') first."
+                    )
     
-    def __add__(self, other):
-        other = other if isinstance(other, Tensor) else Tensor(other, device=self.device)
-        op = Add(self, other)
-        self._check_same_device(other)
-        result_data = op.forward(self.data, other.data)
-        requires_grad = self.requires_grad or other.requires_grad
-        
+    def _to_tensor(self, other):
+        return other if isinstance(other, Tensor) else Tensor(other, device=self.device)
+    
+    def _apply(self, OpClass, *inputs):
+        for t in inputs:
+            self._check_same_device(t)
+        op = OpClass(*inputs)
+        result_data = op.forward(*(t.data for t in inputs))
+        requires_grad = any(t.requires_grad for t in inputs)
         result = Tensor(result_data, requires_grad=requires_grad, device=self.device)
-        result._ctx = op
+        if requires_grad:
+            result._ctx = op
         return result
     
-    def __mul__(self, other):
-        other = other if isinstance(other, Tensor) else Tensor(other, device=self.device)
-        self._check_same_device(other)
-        op = Mul(self, other)
-        result_data = op.forward(self.data, other.data)
-        requires_grad = self.requires_grad or other.requires_grad
-        
-        result = Tensor(result_data, requires_grad=requires_grad, device=self.device)
-        result._ctx = op
-        return result
-    
-    def __sub__(self, other):
-        other = other if isinstance(other, Tensor) else Tensor(other, device=self.device)
-        self._check_same_device(other)
-        op = Sub(self, other)
-        result_data = op.forward(self.data, other.data)
-        requires_grad = self.requires_grad or other.requires_grad
-        
-        result = Tensor(result_data, requires_grad=requires_grad, device=self.device)
-        result._ctx = op
-        return result
-    
-    def __matmul__(self, other):
-        other = other if isinstance(other, Tensor) else Tensor(other, device=self.device)
-        self._check_same_device(other)
-        op = Matmul(self, other)
-        result_data = op.forward(self.data, other.data)
-        requires_grad = self.requires_grad or other.requires_grad
-        
-        result = Tensor(result_data, requires_grad=requires_grad, device=self.device)
-        result._ctx = op
-        return result
-    
-    def __neg__(self):
-        op = Neg(self)
-        result_data = op.forward(self.data)
-        result = Tensor(result_data, requires_grad=self.requires_grad, device=self.device)
-        result._ctx = op
-        return result
-    
-    def __truediv__(self, other):
-        other = other if isinstance(other, Tensor) else Tensor(other, device=self.device)
-        op = Truediv(self, other)
-        self._check_same_device(other)
-        result_data = op.forward(self.data, other.data)
-        requires_grad = self.requires_grad or other.requires_grad
-        
-        result = Tensor(result_data, requires_grad=requires_grad, device=self.device)
-        result._ctx = op
-        return result
-    
-        
-    
-        
+    def __add__(self, other):   return self._apply(Add, self, self._to_tensor(other))
+    def __add__(self, other):      return self._apply(Add, self, self._to_tensor(other))
+    def __radd__(self, other):     return self._apply(Add, self._to_tensor(other), self)
+    def __sub__(self, other):      return self._apply(Sub, self, self._to_tensor(other))
+    def __rsub__(self, other):     return self._apply(Sub, self._to_tensor(other), self)
+    def __mul__(self, other):      return self._apply(Mul, self, self._to_tensor(other))
+    def __rmul__(self, other):     return self._apply(Mul, self._to_tensor(other), self)
+    def __truediv__(self, other):  return self._apply(Truediv, self, self._to_tensor(other))
+    def __rtruediv__(self, other): return self._apply(Truediv, self._to_tensor(other), self)
+    def __matmul__(self, other):   return self._apply(Matmul, self, self._to_tensor(other))
+    def __rmatmul__(self, other):  return self._apply(Matmul, self._to_tensor(other), self)
+    def __neg__(self):             return self._apply(Neg, self)
