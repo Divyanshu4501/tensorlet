@@ -74,3 +74,14 @@ class Truediv(Function):
         grad_a = unbroadcast(grad_output/b, a.shape)
         grad_b = unbroadcast(grad_output*(-a/(b**2)), b.shape)
         return grad_a, grad_b
+    
+class Pow(Function):
+    def forward(self, a, exponent):
+        self.save_for_backward(a, exponent)
+        return a**exponent
+    
+    def backward(self, grad_output):
+        a, n = self.saved_tensors
+        if n == 0:
+            return (grad_output*0.0, )
+        return (grad_output*n*a**(n-1),)

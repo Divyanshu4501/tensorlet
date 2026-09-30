@@ -1,7 +1,8 @@
 import numpy as np
 from torch.backend import cp, HAS_CUPY
 from core.tensor_impl import TensorImpl
-from torch.ops.elementwise import Add, Sub, Mul, Matmul, Neg, Truediv
+import numbers
+from torch.ops.elementwise import Add, Sub, Mul, Matmul, Neg, Truediv, Pow
 
 # neg, pow, truediv, relu, sigmoid, tanh, sum, mean, reshape, T
 
@@ -96,11 +97,11 @@ class Tensor:
     def _to_tensor(self, other):
         return other if isinstance(other, Tensor) else Tensor(other, device=self.device)
     
-    def _apply(self, OpClass, *inputs):
+    def _apply(self, OpClass, *inputs, **kwargs):
         for t in inputs:
             self._check_same_device(t)
         op = OpClass(*inputs)
-        result_data = op.forward(*(t.data for t in inputs))
+        result_data = op.forward(*(t.data for t in inputs), **kwargs)
         requires_grad = any(t.requires_grad for t in inputs)
         result = Tensor(result_data, requires_grad=requires_grad, device=self.device)
         if requires_grad:
@@ -119,3 +120,9 @@ class Tensor:
     def __matmul__(self, other):   return self._apply(Matmul, self, self._to_tensor(other))
     def __rmatmul__(self, other):  return self._apply(Matmul, self._to_tensor(other), self)
     def __neg__(self):             return self._apply(Neg, self)
+    def __pow__(self, exponent):
+        if isinstance(exponent, Tensor):
+            raise NotImplementedError("Tensor exponents are not supported yet; use a Python number, e.g. x ** 2")
+        if not isinstance(exponent, numbers.Number):
+            raise TypeError(f"exponent must be a number, got {type(exponent).__name__}")
+        return self._apply(Pow, self, exponent=exponent)
