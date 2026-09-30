@@ -27,7 +27,7 @@ class Tensor:
         if grad is None:
             if grad.data.shape != 1:
                 raise RuntimeError("grad can be implicitly created only for scalar outputs")
-            xp = cp if self.device='cuda' else np
+            xp = cp if self.device == 'cuda' else np
             grad = xp.ones_like(self.data)
         else:
             if isinstance(grad, Tensor):
@@ -54,9 +54,13 @@ class Tensor:
         
         build_topo(self)
         for t in reversed(topo_order):
+            if t._ctx is None or not t.requires_grad:
+                continue
             if t._ctx is not None:
                  grads = t._ctx.backward(t.grad)
                  for parent, grad_contribution in zip(t._ctx.parents, grads):
+                    if not parent.requires_grad:
+                        continue
                     if parent.grad is None:
                          parent.grad = grad_contribution
                     else:
