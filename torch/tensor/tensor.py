@@ -3,12 +3,12 @@ from torch.backend import cp, HAS_CUPY
 from core.tensor_impl import TensorImpl
 import numbers
 from torch.ops.elementwise import Add, Sub, Mul, Matmul, Neg, Truediv, Pow, Sum, Mean
+from torch.ops.activations import Sigmoid, Tanh, Relu
 
 # neg, pow, truediv, relu, sigmoid, tanh, reshape, T
 
 
 class Tensor:
-    
     __array_ufunc__ = None
     def __init__(self, data, requires_grad=False, device='cpu'):
         self._impl = TensorImpl(data, device)
@@ -120,6 +120,9 @@ class Tensor:
     def __matmul__(self, other):   return self._apply(Matmul, self, self._to_tensor(other))
     def __rmatmul__(self, other):  return self._apply(Matmul, self._to_tensor(other), self)
     def __neg__(self):             return self._apply(Neg, self)
+    def relu(self):    return self._apply(Relu, self)
+    def sigmoid(self): return self._apply(Sigmoid, self) # We need to add output check in case we change data before calling .backward()
+    def tanh(self):    return self._apply(Tanh, self) # We need to add output check in case we change data before calling .backward()
     def __pow__(self, exponent):
         if isinstance(exponent, Tensor):
             raise NotImplementedError("Tensor exponents are not supported yet; use a Python number, e.g. x ** 2")
