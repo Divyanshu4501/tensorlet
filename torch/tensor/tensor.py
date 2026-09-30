@@ -17,6 +17,12 @@ class Tensor:
     def data(self):
         return self._impl.data
     
+    @data.setter
+    def data(self, value):
+        if isinstance(value, Tensor):
+            value = value.data
+        self._impl = TensorImpl(value, self.device)
+    
     @property
     def device(self):
         return self._impl.device
