@@ -25,9 +25,19 @@ class Tensor:
         if not self.requires_grad:
             raise RuntimeError("element 0 of tensors does not require grad and does not have a grad_fn")
         if grad is None:
-            grad = np.ones_like(self.data) if self.device == 'cpu' else cp.ones_like(self.data)
+            if grad.data.shape != 1:
+                raise RuntimeError("grad can be implicitly created only for scalar outputs")
+            xp = cp if self.device='cuda' else np
+            grad = xp.ones_like(self.data)
         else:
-            self.grad = np.array(grad, dtype=np.float64) if self.device == 'cpu' else cp.array(grad, dtype=cp.float64)
+            if isinstance(grad, Tensor):
+                grad = grad.data
+            grad = TensorImpl(grad, device=self.device).data
+            if grad.shape != self.data.shape:
+                raise RuntimeError(
+                    f"Mismatch in shape: grad has shape {grad.shape}, "
+                    f"but output has shape {self.data.shape}"
+                )
             
         self.grad = grad
         
@@ -117,8 +127,8 @@ class Tensor:
     
     def __truediv__(self, other):
         other = other if isinstance(other, Tensor) else Tensor(other, device=self.device)
-        self._check_same_device(other)
         op = Truediv(self, other)
+        self._check_same_device(other)
         result_data = op.forward(self.data, other.data)
         requires_grad = self.requires_grad or other.requires_grad
         
